@@ -11,6 +11,13 @@ import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+
 public class OpenGL {
 	public static void main(String[] args) throws Exception {
 		// open a window
@@ -38,9 +45,7 @@ public class OpenGL {
 
 		// load, compile and link shaders
 		// see https://www.khronos.org/opengl/wiki/Vertex_Shader
-		String VertexShaderSource = "#version 400 core\n" + "\n" + "uniform mat4 mv;\n" + "uniform mat4 proj;\n"
-				+ "in vec3 pos;\n" + "in vec3 vColor;\n" + "out vec3 fColor;\n" + "\n" + "void main()\n" + "{\n"
-				+ "  gl_Position = proj*mv*vec4(pos, 1);\n" + "  fColor = vColor;\n" + "}";
+		String VertexShaderSource = readShader("./VShader.glsl");
 		int hVertexShader = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(hVertexShader, VertexShaderSource);
 		glCompileShader(hVertexShader);
@@ -48,8 +53,7 @@ public class OpenGL {
 			throw new Exception(glGetShaderInfoLog(hVertexShader));
 
 		// see https://www.khronos.org/opengl/wiki/Fragment_Shader
-		String FragmentShaderSource = "#version 400 core\n" + "\n" + "out vec4 colour;\n" + "in vec3 fColor;;\n" + "\n"
-				+ "void main()\n" + "{\n" + "  colour = vec4(fColor, 1.0);\n" + "}";
+		String FragmentShaderSource = readShader("./FShader.glsl");
 		int hFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(hFragmentShader, FragmentShaderSource);
 		glCompileShader(hFragmentShader);
@@ -148,6 +152,17 @@ public class OpenGL {
 		glBindVertexArray(vao);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
 		glDrawElements(GL_TRIANGLES, noIndices, GL_UNSIGNED_INT, 0);
+	}
+	
+	private static String readShader(String path) {
+		File file = new File(path);
+		URI uri = file.toURI();
+		byte[] bytes = null;
+		try {
+			bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(uri));
+		} catch(IOException e) {}
+
+		return new String(bytes);
 	}
 
 	private static int setupVBOBuffer(int buffertype, float[] buffer) {
