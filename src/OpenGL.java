@@ -7,16 +7,21 @@ import ch.fhnw.util.math.Vec3;
 
 import static org.lwjgl.opengl.GL.*;
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL21.*;
 import static org.lwjgl.opengl.GL30.*;
 
-import java.io.BufferedReader;
+import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+import javax.imageio.ImageIO;
 
 public class OpenGL {
 	public static void main(String[] args) throws Exception {
@@ -36,12 +41,17 @@ public class OpenGL {
 		GLFW.glfwSwapInterval(1);
 		createCapabilities();
 
+		// set up texture
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		
 		// set up opengl
 		glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
 		// GL11.glClearDepth(1);
 		GL11.glEnable(GL11.GL_DEPTH_TEST);
 		// GL11.glDepthFunc(GL11.GL_LESS);
 		// GL11.glDisable(GL11.GL_CULL_FACE);
+		GL11.glEnable(GL_FRAMEBUFFER_SRGB);
+		
 
 		// load, compile and link shaders
 		// see https://www.khronos.org/opengl/wiki/Vertex_Shader
@@ -94,6 +104,19 @@ public class OpenGL {
 		glVertexAttribPointer(glGetAttribLocation(hProgram, "vColor"), 3, GL_FLOAT, false, 0, 0);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboTriangleIndices);
 
+		// Load texture object
+		BufferedImage texImage = loadImage("./texture.bmp");
+		ByteBuffer texture = getRGBFromImage(texImage); 
+		int texStorageTexture = glGenTextures();
+		
+		// parameterize the textures
+		glBindTexture(GL_TEXTURE_2D, texStorageTexture);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, texImage.getWidth(), texImage.getHeight(), 0, GL_RGB, GL_UNSIGNED_BYTE, texture);
+		int textureUnit = 0;
+		
 		// check for errors during all previous calls
 		int error = glGetError();
 		if (error != GL_NO_ERROR)
@@ -105,6 +128,10 @@ public class OpenGL {
 			// switch to our shader
 			glUseProgram(hProgram);
 
+			// load texture
+			glActiveTexture(GL_TEXTURE0 + textureUnit);
+			glBindTexture(GL_TEXTURE_2D, texStorageTexture);
+			glUniform1i(glGetUniformLocation(hProgram, "text"), textureUnit);
 
 			// projection
 			Mat4 proj = Mat4.perspective(-1, 1, -1, 1, 1, 10);
@@ -164,6 +191,30 @@ public class OpenGL {
 
 		return new String(bytes);
 	}
+	
+	private static BufferedImage loadImage(String path) {
+		BufferedImage m = null;
+		try {
+			m = ImageIO.read(Files.newInputStream(Paths.get(path)));
+		} catch (IOException e) {
+			System.out.println("Fix your f*cking image path.");
+		}
+		return m;
+	}
+	
+	private static ByteBuffer getRGBFromImage(BufferedImage i) {
+		ByteBuffer b = ByteBuffer.allocateDirect(i.getWidth()*i.getHeight()*3);
+		for(int y = 0; y < i.getHeight(); y++) {
+			for(int x = 0; x < i.getWidth(); x++) {
+				int rgb = i.getRGB(x, y);
+				b.put((byte) ((rgb >> 16) & 0xFF));
+				b.put((byte) ((rgb >> 8) & 0xFF));
+				b.put((byte) (rgb & 0xFF));
+			}
+		}
+		b.flip();
+		return b;
+	}
 
 	private static int setupVBOBuffer(int buffertype, float[] buffer) {
 		int buf = glGenBuffers();
@@ -185,14 +236,14 @@ public class OpenGL {
 				0, 2, 3, 
 				7, 6, 5, 
 				7, 5, 4, 
-				0, 3, 7, 
-				0, 7, 4, 
-				2, 1, 5, 
-				2, 5, 6, 
-				3, 2, 6,
-				3, 6, 7, 
-				1, 0, 4, 
-				1, 4, 5 
+//				0, 3, 7, 
+//				0, 7, 4, 
+//				2, 1, 5, 
+//				2, 5, 6, 
+//				3, 2, 6,
+//				3, 6, 7, 
+//				1, 0, 4, 
+//				1, 4, 5 
 		};
 	}
 

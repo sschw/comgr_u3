@@ -1,9 +1,12 @@
 #version 400 core
 
+uniform sampler2D text;
 out vec4 colour;
 in vec3 fColor;
+in vec3 fPos;
 
 void main()
 {
-  colour = vec4(fColor, 1.0);
+  vec2 uv = (fPos.xy * 0.5) + vec2(0.5, 0.5);
+  colour = vec4(fColor, 1)*texture(text, uv);
 }
