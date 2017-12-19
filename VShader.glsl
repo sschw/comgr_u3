@@ -8,6 +8,6 @@ out vec3 fColor;
 
 void main()
 {
-	gl_Position = proj*mv*vec4(pos, 1);
+  gl_Position = proj*mv*vec4(pos, 1);
   fColor = vColor;
 }
