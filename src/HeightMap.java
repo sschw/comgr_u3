@@ -23,7 +23,7 @@ import java.nio.file.Paths;
 
 import javax.imageio.ImageIO;
 
-public class OpenGL {
+public class HeightMap {
 	public static void main(String[] args) throws Exception {
 		// open a window
 		GLFWErrorCallback.createPrint(System.err).set();
@@ -55,7 +55,7 @@ public class OpenGL {
 
 		// load, compile and link shaders
 		// see https://www.khronos.org/opengl/wiki/Vertex_Shader
-		String VertexShaderSource = readShader("./VShader.glsl");
+		String VertexShaderSource = readShader("./VShaderHeightMap.glsl");
 		int hVertexShader = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(hVertexShader, VertexShaderSource);
 		glCompileShader(hVertexShader);
@@ -63,7 +63,7 @@ public class OpenGL {
 			throw new Exception(glGetShaderInfoLog(hVertexShader));
 
 		// see https://www.khronos.org/opengl/wiki/Fragment_Shader
-		String FragmentShaderSource = readShader("./FShader.glsl");
+		String FragmentShaderSource = readShader("./FShaderHeightMap.glsl");
 		int hFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(hFragmentShader, FragmentShaderSource);
 		glCompileShader(hFragmentShader);
@@ -105,7 +105,7 @@ public class OpenGL {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboTriangleIndices);
 
 		// Load texture object
-		BufferedImage texImage = loadImage("./texture.bmp");
+		BufferedImage texImage = loadImage("./heightmap.bmp");
 		ByteBuffer texture = getRGBFromImage(texImage); 
 		int texStorageTexture = glGenTextures();
 		
@@ -123,7 +123,6 @@ public class OpenGL {
 			throw new Exception(Integer.toString(error));
 
 		// render loop
-		int angle = 0;
 		while (!GLFW.glfwWindowShouldClose(hWindow)) {
 			// switch to our shader
 			glUseProgram(hProgram);
@@ -135,21 +134,16 @@ public class OpenGL {
 
 			// projection
 			Mat4 proj = Mat4.perspective(-1, 1, -1, 1, 1, 10);
-			glUniformMatrix4fv(glGetUniformLocation(hProgram, "proj"), false, proj.toArray());
+
+			// Define current camera matrix
+			Mat4 camera = Mat4.lookAt(new Vec3(1, 1, 1), new Vec3(0, 0, -5), new Vec3(0, 1, 0));
+			
+			glUniformMatrix4fv(glGetUniformLocation(hProgram, "proj"), false, Mat4.multiply(proj, camera).toArray());
 
 			// clear screen and z-buffer
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			// Define current mv matrix
-			Mat4 camera = Mat4.lookAt(new Vec3(1, 1, 1), new Vec3(0, 0, -5), new Vec3(0, 1, 0));
-
-			draw(hProgram, new Vec3(0, 0, -5), angle, new Vec3(1, 1, 0), camera, vaoTriangle, vboTriangleIndices,
-					triangleIndices.length);
-
-			draw(hProgram, new Vec3(-2, -2, -8), angle+70, new Vec3(1, 0, 1), camera, vaoTriangle, vboTriangleIndices,
-					triangleIndices.length);
-
-			draw(hProgram, new Vec3(2, 2, -3), angle+50, new Vec3(0, 1, 1), camera, vaoTriangle, vboTriangleIndices,
+			draw(hProgram, new Vec3(0, 0, -5), 0, new Vec3(1, 1, 0), 5.0f, vaoTriangle, vboTriangleIndices,
 					triangleIndices.length);
 			
 			// display
@@ -159,26 +153,24 @@ public class OpenGL {
 			error = glGetError();
 			if (error != GL_NO_ERROR)
 				throw new Exception(Integer.toString(error));
-
-			// Modify rotation
-			angle += 5;
 		}
 
 		GLFW.glfwDestroyWindow(hWindow);
 		GLFW.glfwTerminate();
 	}
 
-	private static void draw(int hProgram, Vec3 translate, int angle, Vec3 rotAxis, Mat4 camera, int vao, int indices,
+	private static void draw(int hProgram, Vec3 translate, int angle, Vec3 rotAxis, float s, int vao, int indices,
 			int noIndices) {
+		Mat4 scale = Mat4.scale(s, s, s);
 		Mat4 rot = Mat4.rotate(angle, rotAxis);
 		Mat4 trans = Mat4.translate(translate);
-		Mat4 mv = Mat4.multiply(camera, trans, rot);
+		Mat4 mv = Mat4.multiply(trans, rot, scale);
 		glUniformMatrix4fv(glGetUniformLocation(hProgram, "mv"), false, mv.toArray());
 
 		// render our model
 		glBindVertexArray(vao);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
-		glDrawElements(GL_TRIANGLES, noIndices, GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLE_STRIP, noIndices, GL_UNSIGNED_INT, 0);
 	}
 	
 	private static String readShader(String path) {
@@ -231,33 +223,34 @@ public class OpenGL {
 	}
 
 	private static int[] setupVerticesIndices() {
-		return new int[] { 
-				0, 1, 2, 
-				0, 2, 3, 
-				7, 6, 5, 
-				7, 5, 4, 
-//				0, 3, 7, 
-//				0, 7, 4, 
-//				2, 1, 5, 
-//				2, 5, 6, 
-//				3, 2, 6,
-//				3, 6, 7, 
-//				1, 0, 4, 
-//				1, 4, 5 
-		};
+		// 0, 100, 1, 101, 2, 102, 202, 101, 201, 100, 200, 300, 201, 301, 202, 302
+		int[] index = new int[19800];
+		int k = 0;
+		boolean forward = true;
+		for(int i = 0; i < 99; i++) {
+			for(int j = 0; j < 100; j++) {
+				for(int l = 0; l < 2; l++)
+					if(forward)
+						index[k++] = i*100+j+100*l;
+					else
+						index[k++] = i*100+(99-j)+100*l;
+			}
+			forward = !forward;
+		}
+		return index;
 	}
 
 	public static float[] setupVertices() {
-		return new float[] { 
-				-1, -1, -1, 
-				1, -1, -1, 
-				1, 1, -1, 
-				-1, 1, -1, 
-				-1, -1, 1, 
-				1, -1, 1, 
-				1, 1, 1, 
-				-1, 1, 1 
-		};
+		float[] field = new float[30000];
+		for(int i = 0; i < 100; i++) {
+			for(int j = 0; j < 100; j++) {
+				field[i*300+j*3] = -1+(0.02f*j);
+				field[i*300+j*3+1] = 0;
+				field[i*300+j*3+2] = -1+(0.02f*i);
+			}
+		}
+
+		return field;
 	}
 
 	public static float[] setupNormals() {
@@ -272,15 +265,13 @@ public class OpenGL {
 	}
 
 	public static float[] setupVerticesColor() {
-		return new float[] { 
-				0, 0, 0, 
-				1, 0, 0, 
-				0, 1, 0, 
-				0, 0, 1, 
-				1, 1, 0, 
-				0, 1, 1, 
-				1, 0, 1, 
-				1, 1, 1 
-		};
+		float[] c = new float[30000];
+		for(int x = 0; x < 100; x++)
+			for(int y = 0; y < 100; y++) {
+				c[3*x+300*y] = x/100.0f;
+				c[1+3*x+300*y] = y/100.0f;
+				// blue = 0
+			}
+		return c;
 	}
 }
