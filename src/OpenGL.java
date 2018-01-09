@@ -134,22 +134,21 @@ public class OpenGL {
 			glUniform1i(glGetUniformLocation(hProgram, "text"), textureUnit);
 
 			// projection
+			Mat4 camera = Mat4.lookAt(new Vec3(1, 1, 1), new Vec3(0, 0, -5), new Vec3(0, 1, 0));
 			Mat4 proj = Mat4.perspective(-1, 1, -1, 1, 1, 10);
-			glUniformMatrix4fv(glGetUniformLocation(hProgram, "proj"), false, proj.toArray());
+			glUniformMatrix4fv(glGetUniformLocation(hProgram, "proj"), false, Mat4.multiply(proj, camera).toArray());
 
 			// clear screen and z-buffer
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			// Define current mv matrix
-			Mat4 camera = Mat4.lookAt(new Vec3(1, 1, 1), new Vec3(0, 0, -5), new Vec3(0, 1, 0));
-
-			draw(hProgram, new Vec3(0, 0, -5), angle, new Vec3(1, 1, 0), camera, vaoTriangle, vboTriangleIndices,
+			draw(hProgram, new Vec3(0, 0, -5), angle, new Vec3(1, 1, 0), vaoTriangle, vboTriangleIndices,
 					triangleIndices.length);
 
-			draw(hProgram, new Vec3(-2, -2, -8), angle+70, new Vec3(1, 0, 1), camera, vaoTriangle, vboTriangleIndices,
+			draw(hProgram, new Vec3(-2, -2, -8), angle+70, new Vec3(1, 0, 1), vaoTriangle, vboTriangleIndices,
 					triangleIndices.length);
 
-			draw(hProgram, new Vec3(2, 2, -3), angle+50, new Vec3(0, 1, 1), camera, vaoTriangle, vboTriangleIndices,
+			draw(hProgram, new Vec3(2, 2, -3), angle+50, new Vec3(0, 1, 1), vaoTriangle, vboTriangleIndices,
 					triangleIndices.length);
 			
 			// display
@@ -168,11 +167,12 @@ public class OpenGL {
 		GLFW.glfwTerminate();
 	}
 
-	private static void draw(int hProgram, Vec3 translate, int angle, Vec3 rotAxis, Mat4 camera, int vao, int indices,
+	private static void draw(int hProgram, Vec3 translate, int angle, Vec3 rotAxis, int vao, int indices,
 			int noIndices) {
 		Mat4 rot = Mat4.rotate(angle, rotAxis);
 		Mat4 trans = Mat4.translate(translate);
-		Mat4 mv = Mat4.multiply(camera, trans, rot);
+		Mat4 mv = Mat4.multiply(trans, rot);
+		glUniformMatrix4fv(glGetUniformLocation(hProgram, "mvNorm"), false, mv.inverse().transpose().toArray());
 		glUniformMatrix4fv(glGetUniformLocation(hProgram, "mv"), false, mv.toArray());
 
 		// render our model

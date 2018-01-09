@@ -105,7 +105,7 @@ public class HeightMap {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboTriangleIndices);
 
 		// Load texture object
-		BufferedImage texImage = loadImage("./heightmap.bmp");
+		BufferedImage texImage = loadImage("./heightmap2.gif");
 		ByteBuffer texture = getRGBFromImage(texImage); 
 		int texStorageTexture = glGenTextures();
 		
