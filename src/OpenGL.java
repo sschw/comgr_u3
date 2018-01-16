@@ -112,9 +112,11 @@ public class OpenGL {
 		// parameterize the textures
 		glBindTexture(GL_TEXTURE_2D, texStorageTexture);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, texImage.getWidth(), texImage.getHeight(), 0, GL_RGB, GL_UNSIGNED_BYTE, texture);
+		
+		glGenerateMipmap(GL_TEXTURE_2D);
 		int textureUnit = 0;
 		
 		// check for errors during all previous calls
@@ -257,17 +259,6 @@ public class OpenGL {
 				1, -1, 1, 
 				1, 1, 1, 
 				-1, 1, 1 
-		};
-	}
-
-	public static float[] setupNormals() {
-		return new float[] { 
-				0, 0, 1,
-				0, 1, 0,
-				1, 0, 0,
-				0, 0, -1,
-				0, -1, 0,
-				-1, 0, 0 
 		};
 	}
 

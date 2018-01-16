@@ -13,11 +13,12 @@ void main()
 {
   vec2 uv = (fPos.xy * 0.5) + vec2(0.5, 0.5);
   
+  vec4 tex = texture(text, uv);
   vec3 toLight = normalize(lightPos - fMvPos);
   float beta = max(0, dot(toLight, fNorm));
-  vec4 diffuse = beta * vec4(fColor, 1)*texture(text, uv);
+  vec3 diffuse = beta * fColor * tex.rgb;
   vec3 r = 2 * beta * fNorm - toLight;
-  vec4 specular = vec4(pow(max(0, -dot(r, normalize(fMvPos))), 20));
+  vec3 specular = vec3(pow(max(0, -dot(r, normalize(fMvPos))), 20));
 
-  colour = diffuse + specular;
+  colour = vec4(diffuse + specular, tex.a);
 }

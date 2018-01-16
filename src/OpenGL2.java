@@ -23,7 +23,7 @@ import java.nio.file.Paths;
 
 import javax.imageio.ImageIO;
 
-public class HeightMap {
+public class OpenGL2 {
 	public static void main(String[] args) throws Exception {
 		// open a window
 		GLFWErrorCallback.createPrint(System.err).set();
@@ -45,17 +45,17 @@ public class HeightMap {
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 		
 		// set up opengl
-		glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
-		// GL11.glClearDepth(1);
-		GL11.glEnable(GL11.GL_DEPTH_TEST);
-		// GL11.glDepthFunc(GL11.GL_LESS);
-		// GL11.glDisable(GL11.GL_CULL_FACE);
-		GL11.glEnable(GL_FRAMEBUFFER_SRGB);
-		
+		glClearColor(1f, 1f, 1f, 0.0f);
+		glEnable(GL11.GL_DEPTH_TEST);
+		glDepthFunc(GL11.GL_LESS);
+		// glClearDepth(1);
+		// glDisable(GL11.GL_CULL_FACE);
+		// glDepthMask(false);
+		glEnable(GL_FRAMEBUFFER_SRGB);	
 
 		// load, compile and link shaders
 		// see https://www.khronos.org/opengl/wiki/Vertex_Shader
-		String VertexShaderSource = readShader("./VShaderHeightMap.glsl");
+		String VertexShaderSource = readShader("./VShader2.glsl");
 		int hVertexShader = glCreateShader(GL_VERTEX_SHADER);
 		glShaderSource(hVertexShader, VertexShaderSource);
 		glCompileShader(hVertexShader);
@@ -63,7 +63,7 @@ public class HeightMap {
 			throw new Exception(glGetShaderInfoLog(hVertexShader));
 
 		// see https://www.khronos.org/opengl/wiki/Fragment_Shader
-		String FragmentShaderSource = readShader("./FShaderHeightMap.glsl");
+		String FragmentShaderSource = readShader("./FShader2.glsl");
 		int hFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
 		glShaderSource(hFragmentShader, FragmentShaderSource);
 		glCompileShader(hFragmentShader);
@@ -105,7 +105,7 @@ public class HeightMap {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboTriangleIndices);
 
 		// Load texture object
-		BufferedImage texImage = loadImage("./heightmap2.gif");
+		BufferedImage texImage = loadImage("./texture3.png");
 		ByteBuffer texture = getRGBFromImage(texImage); 
 		int texStorageTexture = glGenTextures();
 		
@@ -114,7 +114,7 @@ public class HeightMap {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, texImage.getWidth(), texImage.getHeight(), 0, GL_RGB, GL_UNSIGNED_BYTE, texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, texImage.getWidth(), texImage.getHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, texture);
 		int textureUnit = 0;
 		
 		// check for errors during all previous calls
@@ -123,6 +123,7 @@ public class HeightMap {
 			throw new Exception(Integer.toString(error));
 
 		// render loop
+		int angle = 0;
 		while (!GLFW.glfwWindowShouldClose(hWindow)) {
 			// switch to our shader
 			glUseProgram(hProgram);
@@ -133,19 +134,28 @@ public class HeightMap {
 			glUniform1i(glGetUniformLocation(hProgram, "text"), textureUnit);
 
 			// projection
+			Mat4 camera = Mat4.lookAt(new Vec3(1, 1, 1), new Vec3(2, 2, -5), new Vec3(0, 1, 0));
 			Mat4 proj = Mat4.perspective(-1, 1, -1, 1, 1, 10);
-
-			// Define current camera matrix
-			Mat4 camera = Mat4.lookAt(new Vec3(5, 5, 5), new Vec3(0, 0, 0), new Vec3(0, 1, 0));
-			camera = Mat4.multiply(camera, Mat4.rotate(camera_y, new Vec3(1, 0, 0)), Mat4.rotate(camera_x, new Vec3(0, 1, 0)));
-			
 			glUniformMatrix4fv(glGetUniformLocation(hProgram, "proj"), false, Mat4.multiply(proj, camera).toArray());
 
 			// clear screen and z-buffer
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			draw(hProgram, new Vec3(0, 0, 0), 0, new Vec3(1, 1, 0), 5.0f, vaoTriangle, vboTriangleIndices,
+			// Define current mv matrix
+			glDisable(GL_BLEND);
+			glUniform1i(glGetUniformLocation(hProgram, "useText"), 0);
+			draw(hProgram, new Vec3(1.5, 1.5, -3), angle, new Vec3(1, 1, 0), vaoTriangle, vboTriangleIndices,
 					triangleIndices.length);
+
+			// glDisable(GL11.GL_DEPTH_TEST);
+			glDepthMask(false);
+			glEnable(GL_BLEND); 
+			glBlendFunc(GL_ZERO, GL_SRC_COLOR);	
+			glUniform1i(glGetUniformLocation(hProgram, "useText"), 1);			
+			draw(hProgram, new Vec3(2, 2, -3), angle+50, new Vec3(0, 1, 1), vaoTriangle, vboTriangleIndices,
+					triangleIndices.length);
+			glDepthMask(true);
+
 			
 			// display
 			GLFW.glfwSwapBuffers(hWindow);
@@ -154,44 +164,26 @@ public class HeightMap {
 			error = glGetError();
 			if (error != GL_NO_ERROR)
 				throw new Exception(Integer.toString(error));
-			
-			handleKeyboard(hWindow);
+
+			// Modify rotation
+			angle += 1;
 		}
 
 		GLFW.glfwDestroyWindow(hWindow);
 		GLFW.glfwTerminate();
 	}
-	
-	private static int camera_x = 0;
-	private static int camera_y = 0;
-	private static void handleKeyboard(long hWindow) {
-	    if(GLFW.glfwGetKey(hWindow, GLFW.GLFW_KEY_W) == 1){
-	        camera_y += 1;
-	    }
-	    else if(GLFW.glfwGetKey(hWindow, GLFW.GLFW_KEY_S) == 1){
-	        camera_y += -1;
-	    }
-	    if(GLFW.glfwGetKey(hWindow, GLFW.GLFW_KEY_A) == 1){
-	        camera_x += 1;
-	    }
-	    else if(GLFW.glfwGetKey(hWindow, GLFW.GLFW_KEY_D) == 1){
-	        camera_x += -1;
-	    }
 
-	}
-
-	private static void draw(int hProgram, Vec3 translate, int angle, Vec3 rotAxis, float s, int vao, int indices,
+	private static void draw(int hProgram, Vec3 translate, int angle, Vec3 rotAxis, int vao, int indices,
 			int noIndices) {
-		Mat4 scale = Mat4.scale(s, s, s);
 		Mat4 rot = Mat4.rotate(angle, rotAxis);
 		Mat4 trans = Mat4.translate(translate);
-		Mat4 mv = Mat4.multiply(trans, rot, scale);
+		Mat4 mv = Mat4.multiply(trans, rot);
 		glUniformMatrix4fv(glGetUniformLocation(hProgram, "mv"), false, mv.toArray());
 
 		// render our model
 		glBindVertexArray(vao);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
-		glDrawElements(GL_TRIANGLE_STRIP, noIndices, GL_UNSIGNED_INT, 0);
+		glDrawElements(GL_TRIANGLES, noIndices, GL_UNSIGNED_INT, 0);
 	}
 	
 	private static String readShader(String path) {
@@ -216,13 +208,14 @@ public class HeightMap {
 	}
 	
 	private static ByteBuffer getRGBFromImage(BufferedImage i) {
-		ByteBuffer b = ByteBuffer.allocateDirect(i.getWidth()*i.getHeight()*3);
+		ByteBuffer b = ByteBuffer.allocateDirect(i.getWidth()*i.getHeight()*4);
 		for(int y = 0; y < i.getHeight(); y++) {
 			for(int x = 0; x < i.getWidth(); x++) {
 				int rgb = i.getRGB(x, y);
 				b.put((byte) ((rgb >> 16) & 0xFF));
 				b.put((byte) ((rgb >> 8) & 0xFF));
 				b.put((byte) (rgb & 0xFF));
+				b.put((byte) ((rgb >> 24) & 0xFF));
 			}
 		}
 		b.flip();
@@ -244,44 +237,45 @@ public class HeightMap {
 	}
 
 	private static int[] setupVerticesIndices() {
-		// 0, 100, 1, 101, 2, 102, 202, 101, 201, 100, 200, 300, 201, 301, 202, 302
-		int[] index = new int[19800];
-		int k = 0;
-		boolean forward = true;
-		for(int i = 0; i < 99; i++) {
-			for(int j = 0; j < 100; j++) {
-				for(int l = 0; l < 2; l++)
-					if(forward)
-						index[k++] = i*100+j+100*l;
-					else
-						index[k++] = i*100+(99-j)+100*l;
-			}
-			forward = !forward;
-		}
-		return index;
+		return new int[] { 
+				0, 1, 2, 
+				0, 2, 3, 
+				7, 6, 5, 
+				7, 5, 4, 
+				0, 3, 7, 
+				0, 7, 4, 
+				2, 1, 5, 
+				2, 5, 6, 
+				3, 2, 6,
+				3, 6, 7, 
+				1, 0, 4, 
+				1, 4, 5 
+		};
 	}
 
 	public static float[] setupVertices() {
-		float[] field = new float[30000];
-		for(int i = 0; i < 100; i++) {
-			for(int j = 0; j < 100; j++) {
-				field[i*300+j*3] = -1+(0.02f*j);
-				field[i*300+j*3+1] = 0;
-				field[i*300+j*3+2] = -1+(0.02f*i);
-			}
-		}
-
-		return field;
+		return new float[] { 
+				-1, -1, -1, 
+				1, -1, -1, 
+				1, 1, -1, 
+				-1, 1, -1, 
+				-1, -1, 1, 
+				1, -1, 1, 
+				1, 1, 1, 
+				-1, 1, 1 
+		};
 	}
 
 	public static float[] setupVerticesColor() {
-		float[] c = new float[30000];
-		for(int x = 0; x < 100; x++)
-			for(int y = 0; y < 100; y++) {
-				c[3*x+300*y] = x/100.0f;
-				c[1+3*x+300*y] = y/100.0f;
-				// blue = 0
-			}
-		return c;
+		return new float[] { 
+				1, 0, 0, 
+				0, 1, 0, 
+				0, 0, 1, 
+				1, 1, 0, 
+				1, 0, 1, 
+				0, 1, 1, 
+				1, 1, 1, 
+				0, 0, 0 
+		};
 	}
 }

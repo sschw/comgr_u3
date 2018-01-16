@@ -23,5 +23,5 @@ void main()
 		  )
   );
 
-  lightPos = vec3(1, 1, 1);
+  lightPos = vec3(5, 5, 5);
 }
