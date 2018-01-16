@@ -10,5 +10,5 @@ void main()
 {
   vec2 uv = (fPos.xy * 0.5) + vec2(0.5, 0.5);
 
-  colour = useText ? texture(text, uv)*fColor : vec4(fColor, 1);
+  colour = useText ? vec4(texture(text, uv).rgb*fColor, texture(text, uv).a) : vec4(fColor, 1);
 }
